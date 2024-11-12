@@ -366,8 +366,9 @@ def main():
                 logger.info("  %s = %s " % ("bleu-4", str(dev_bleu)))
                 logger.info("  %s = %s " % ("EM", str(round(np.mean(EM) * 100, 2))))
                 logger.info("  " + "*" * 20)    
-
+                # 计算开发集的总得分 dev_score，该得分是 BLEU 分数与 EM 百分比的总和
                 dev_score = dev_bleu + round(np.mean(EM) * 100, 2)
+                # 如果当前的 dev_score 超过了之前记录的最佳得分 best_score，则更新最佳得分，并记录该信息
                 if dev_score > best_score:
                     logger.info("  Best score:%s", dev_score)
                     logger.info("  " + "*" * 20)
@@ -381,6 +382,7 @@ def main():
                     output_model_file = os.path.join(output_dir, "pytorch_model.bin")
                     torch.save(model_to_save.state_dict(), output_model_file)
                     patience = 0
+                # 早停策略，以避免过拟合
                 else:
                     patience += 1
                     if patience == -1:
@@ -399,11 +401,12 @@ def main():
         all_source_ids = torch.tensor([f.source_ids for f in eval_features], dtype=torch.long)
         eval_data = TensorDataset(all_source_ids)   
 
-        # 计算BLEU
+        # 创建数据加载器
         eval_sampler = SequentialSampler(eval_data)
         eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
         model.eval() 
+        # 生成预测
         p = []
         for batch in tqdm(eval_dataloader, total=len(eval_dataloader)):
             batch = tuple(t.to(device) for t in batch)
@@ -418,7 +421,8 @@ def main():
                         t = t[:t.index(0)]
                     text = tokenizer.decode(t, clean_up_tokenization_spaces=False)
                     p.append(text)
-
+        
+        # 保存预测结果
         predictions = []
         with open(args.output_dir + "/predictions.txt", 'w') as f:
             for ref, gold in zip(p, eval_examples):
